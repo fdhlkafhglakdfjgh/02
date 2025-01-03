@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>3D Coin Visualization</title>
+    <style>
+        body { margin: 0; }
+        canvas { display: block; }
+        #container { 
+            width: 100%;
+            height: 100vh;
+            position: relative;
+        }
+        .loading {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-family: Arial, sans-serif;
+        }
+    </style>
+</head>
+<body>
+    <div id="container">
+        <div class="loading">Загрузка изображения...</div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    <script>
+        let scene, camera, renderer, coin, controls;
+        let frontTexture, backTexture;
+
+        const COIN_COLOR = 0xE8E8E8;
+
+        // Путь к файлам изображений
+        const FRONT_IMAGE_PATH = 'front.png'; // Укажите путь к файлу аверса
+        const BACK_IMAGE_PATH = 'back.png';   // Укажите путь к файлу реверса
+
+        function loadImageAsTexture(filePath, side) {
+            return new Promise((resolve) => {
+                const img = new Image();
+                img.onload = function() {
+                    const texture = new THREE.Texture(img);
+                    texture.needsUpdate = true;
+                    if (side === 'front') {
+                        frontTexture = texture;
+                        setFrontalView();
+                    } else {
+                        backTexture = texture;
+                    }
+                    updateCoinTextures();
+                    resolve();
+                };
+                img.src = filePath; // Используем путь к файлу
+            });
+        }
+
+        function setFrontalView() {
+            coin.rotation.set(0, 0, 0);
+            camera.position.set(0, 0, 5);
+            camera.lookAt(0, 0, 0);
+            controls.reset();
+        }
+
+        function updateCoinTextures() {
+            if (!coin) return;
+            const materials = [
+                new THREE.MeshBasicMaterial({ color: COIN_COLOR }),
+                new THREE.MeshBasicMaterial({ map: frontTexture || new THREE.Texture() }),
+                new THREE.MeshBasicMaterial({ map: backTexture || new THREE.Texture() })
+            ];
+            coin.material = materials;
+        }
+
+        function init() {
+            scene = new THREE.Scene();
+            camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+            camera.position.set(0, 0, 5);
+            camera.lookAt(0, 0, 0);
+
+            renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            document.getElementById('container').appendChild(renderer.domElement);
+
+            controls = new THREE.OrbitControls(camera, renderer.domElement);
+            controls.enableDamping = true;
+            controls.dampingFactor = 0.05;
+
+            const geometry = new THREE.CylinderGeometry(2, 2, 0.2, 32);
+            geometry.rotateX(Math.PI / 2);
+            coin = new THREE.Mesh(geometry, []);
+            scene.add(coin);
+
+            const ambientLight = new THREE.AmbientLight(0xffffff, 1);
+            scene.add(ambientLight);
+            document.querySelector('.loading').style.display = 'none';
+
+            // Загружаем текстуры из файлов
+            Promise.all([
+                loadImageAsTexture(FRONT_IMAGE_PATH, 'front'), // Загружаем аверс
+                loadImageAsTexture(BACK_IMAGE_PATH, 'back')    // Загружаем реверс
+            ]).then(() => {
+                document.querySelector('.loading').style.display = 'none'; // Убираем индикатор загрузки
+            });
+
+            animate();
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+            controls.update();
+            renderer.render(scene, camera);
+        }
+
+        window.addEventListener('resize', function() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+
+        init();
+    </script>
+</body>
+</html>
